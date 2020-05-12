@@ -134,22 +134,23 @@ class Repository:
         self.branches_url: str = repo_json["branches_url"]
 
     def print(self, level: int):
-        repo = git.Repo(self.local_path()) if self.exists_locally() else None
+        repo = self.local_repo()
         color = "red"
-        if self.exists_locally():
+        if repo != None:
             color = "yellow" if repo.is_dirty() else "green"
         caption = self.name
-        if self.exists_locally():
+        if repo != None:
             caption += " [" + repo.active_branch.name + "]"
             caption += " (dirty)" if repo.is_dirty() else ""
         print(CMD.build_command(level, caption, color=color))
         print(CMD.build_command(level + 1, "Open"))
-        print(CMD.build_command(level + 1, "Open (Web)", command = "sh", command_param="open " + self.html_url))
-        if self.exists_locally():
-            print(CMD.build_command(level + 1, "Open (local)", command = "sh", command_param="open " + self.local_path()))
+        print(CMD.build_command(level + 1, "Open (web)", command = "sh", command_param="open " + self.html_url))
+        if repo != None:
+            print(CMD.build_command(level + 1, "Open (local, folder)", command = "sh", command_param="open " + self.local_path()))
+            print(CMD.build_command(level + 1, "Open (local, terminal)", command = "sh", command_param="open -a terminal " + self.local_path()))
         print(CMD.hbar(level + 1))
         print(CMD.build_command(level + 1, "Git"))
-        if not self.exists_locally():
+        if repo == None:
             print(CMD.build_command(level + 1, "Clone", command = "sh", command_param=Wrap.git("clone") + " " + self.ssh_url + " " + self.local_path(), refresh=True))
         else:
             print(CMD.build_command(level + 1, "Fetch", command = "sh", command_param="cd " + self.local_path() + " && " + Wrap.git("fetch")))
@@ -164,7 +165,6 @@ class Repository:
             print(CMD.build_command(level + 1, "Diff"))
             print(CMD.build_command(level + 2, "Changed", command = "sh", command_param="cd " + self.local_path() + " && " + Wrap.git("diff"), terminal=True))
             print(CMD.build_command(level + 2, "Staged", command = "sh", command_param="cd " + self.local_path() + " && " + Wrap.git("diff --cached"), terminal=True))
-            if self.exists_locally():
                 print(CMD.build_command(level + 1, "Branches"))
                 print(CMD.build_command(level + 2, "On: " + repo.active_branch.path + " ~ " + str(repo.active_branch.commit)[:7]))
                 print(CMD.hbar(level+2))
@@ -185,9 +185,8 @@ class Repository:
                 print(CMD.build_command(level + 1, "Git reset (not dirty)"))
                 print(CMD.build_command(level + 1, "Delete local folder", command = "sh", command_param="rm -rf " + self.local_path(), refresh=True))
 
-    def request_branches(self) -> Iterator[Any]:
-        for b in GitHubRequest.request("/".join(["repos", self.owner.name, self.name, "branches"]), self.owner.api_token):
-            yield b
+    def local_repo(self) -> git.Repo:
+        return git.Repo(self.local_path()) if self.exists_locally() else None
 
     def local_path(self) -> str:
         return self.owner.local_repos_folder + "/" + self.name
